@@ -1,5 +1,6 @@
 from tkinter import *
 import tkinter.font
+from PIL import Image, ImageTk
 import serial
 import time
 import re
@@ -11,9 +12,12 @@ import struct
 
 
 #global var
-old_var = [0,0,0]       #store previous value in case of checksum error
+old_var = [0,0,0,0,0,0]       #store previous value in case of checksum error
 cpt_flt = 0             #number of faults
 cpt     = 0             #number of cycles
+
+
+
 
 
 #Find all Serial Ports activated and select only the port of the STM32 board--------------------------------------------------------------
@@ -69,8 +73,10 @@ def read_datas(port_com):
     #Read next X bytes       
     s = ser.read(nb_octet)                       
     
-    #Unpacked  bytes to original format (fff fff ffff fff fff fff B)  f->float B->Byte
-    int_vals = struct.unpack('fffffffffffffffffffB', s)  
+
+
+    #Unpacked  bytes to original format (iii iii ffff fff fff fff B)  f->float B->Byte
+    int_vals = struct.unpack('iiiiiifffffffffffffB', s)  
 
     #Unpacked each bytes in table to compute checksum  
     octets = struct.unpack('BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB', s)     
@@ -82,25 +88,35 @@ def read_datas(port_com):
     #Verif Checksum and extract interesting value 
     if(checksum == octets[-1]):                    #(Octets[-1] = last byte is the checksum)
         #YAW PITCH ROLL is store at 10 11 12 index "in int_vals"
-        x_axis = int_vals[10]
-        y_axis = int_vals[11]
-        z_axis = int_vals[12]
-        #Saves values in case of chesksum mistake
-        old_var[0] = x_axis
-        old_var[1] = y_axis
-        old_var[2] = z_axis
-        #print("x: {0:.1f}".format(x_axis),"y: {0:.1f}".format(y_axis),"z: {0:.1f}".format(z_axis)) #debug
+        yaw = int_vals[10]
+        pitch = int_vals[11]
+        roll = int_vals[12]
+        X = int_vals[13]
+        Y = int_vals[14]
+        Z = int_vals[15]
 
+        #Saves values in case of chesksum mistake
+        old_var[0] = yaw
+        old_var[1] = pitch
+        old_var[2] = roll
+        old_var[3] = X
+        old_var[4] = Y
+        old_var[5] = Z
+
+        #print("x: {0:.1f}".format(yaw),"y: {0:.1f}".format(pitch),"z: {0:.1f}".format(roll)) #debug
+        #print("x: {0:.2f}".format(int_vals[13]),"y: {0:.2f}".format(int_vals[14]),"z: {0:.2f}".format(int_vals[15]))
     #In case of Value error print additionnal infos and return saved values
     else:
         print("CHECKSUM ERROR --","Calc:",checksum ,"Read:",octets[-1]," -- ERROR RATE: ", round((cpt_flt/cpt)*100,1),"%")
         cpt_flt +=1
-        x_axis = old_var[0]
-        y_axis = old_var[1]
-        z_axis = old_var[2]
-        #print(x_axis)
+        yaw = old_var[0]
+        pitch = old_var[1]
+        roll = old_var[2]
+        X = old_var[3]
+        Y = old_var[4]
+        Z = old_var[5]
 
-    return True, 0, x_axis, y_axis, z_axis 
+    return True, yaw, pitch, roll, X, Y, Z 
         
 
 
@@ -108,47 +124,74 @@ def read_datas(port_com):
 win = Tk()
 
 win.title("v1.0")
-win.geometry('400x300')
-win.configure(background=("Grey"))
+win.geometry('500x500')
+win.configure(background=("white"))
 
-#Labels with text----------------------------------------------------------
-temp = Label(win, text = "T °C   " ,fg="Blue",font=("Arial", 18,"bold",))
+#Def img---------------------------------------
+img = PhotoImage(file = 'AXES_YAW_PITCH_ROLL.png', master=win)
+panel = Label(win, image = img)
+panel.pack(side = "bottom",pady="20")
+
+#Labels with text----------------------------------------------------------------------------
+temp = Label(win, text = "         AXIS         " ,fg="Black",font=("Arial", 18,"bold",))
 temp.place(x=50, y=50)
 
-x_axis = Label(win, text = "YAW" ,fg="Green",font=("Arial", 18,"bold",))
-x_axis.place(x=50, y=100)
+yaw = Label(win, text = " YAW  " ,fg="Blue",font=("Arial", 18,"bold",))
+yaw.place(x=50, y=100)
 
-y_axis = Label(win, text = "PITCH" ,fg="Orange",font=("Arial", 18,"bold",))
-y_axis.place(x=50, y=150)
+pitch = Label(win, text = " PITCH" ,fg="Green",font=("Arial", 18,"bold",))
+pitch.place(x=50, y=150)
 
-z_axis = Label(win, text = "ROLL" ,fg="Red",font=("Arial", 18,"bold",))
-z_axis.place(x=50, y=200)
+roll = Label(win, text = " ROLL " ,fg="Red",font=("Arial", 18,"bold",))
+roll.place(x=50, y=200)
 
-#Labels with values---------------------------------------------------------
-temp_val = Label(win, text = "val",fg="Black",font=("Arial", 18,"bold",))
-temp_val.place(x=150, y=50)
+#-----------------------------------------------
+temp = Label(win, text = " GRAVITY " ,fg="Black",font=("Arial", 18,"bold",))
+temp.place(x=300, y=50)
 
-x_axis_val = Label(win, text = "val",fg="Black",font=("Arial", 18,"bold",))
-x_axis_val.place(x=150, y=100)
+X_g = Label(win, text = " X " ,fg="Blue",font=("Arial", 18,"bold",))
+X_g.place(x=300, y=100)
 
-y_axis_val = Label(win, text = "val",fg="Black",font=("Arial", 18,"bold",))
-y_axis_val.place(x=150, y=150)
+Y_g = Label(win, text = " Y " ,fg="Green",font=("Arial", 18,"bold",))
+Y_g.place(x=300, y=150)
 
-z_axis_val = Label(win, text = "val",fg="Black",font=("Arial", 18,"bold",))
-z_axis_val.place(x=150, y=200)
+Z_g = Label(win, text = " Z " ,fg="Red",font=("Arial", 18,"bold",))
+Z_g.place(x=300, y=200)
+
+
+#Labels with values--------------------------------------------------------------------
+yaw_val = Label(win, text = "val",fg="Black",font=("Arial", 18,"bold",))
+yaw_val.place(x=150, y=100)
+
+pitch_val = Label(win, text = "val",fg="Black",font=("Arial", 18,"bold",))
+pitch_val.place(x=150, y=150)
+
+roll_val = Label(win, text = "val",fg="Black",font=("Arial", 18,"bold",))
+roll_val.place(x=150, y=200)
+
+#----------------------------------
+X_g_val = Label(win, text = "val",fg="Black",font=("Arial", 18,"bold",))
+X_g_val.place(x=360, y=100)
+
+Y_g_val = Label(win, text = "val",fg="Black",font=("Arial", 18,"bold",))
+Y_g_val.place(x=360, y=150)
+
+Z_g_val = Label(win, text = "val",fg="Black",font=("Arial", 18,"bold",))
+Z_g_val.place(x=360, y=200)
 
 
 #Recursive function to refresh Window
 def live_update():
     #Read GYRO datas from Serial port
-    active, temp, x_axis, y_axis, z_axis = read_datas(port_com)
+    active, yaw, pitch, roll, X, Y, Z = read_datas(port_com)
 
     #Print datas on Window
-    temp_val['text'] = temp
-    x_axis_val['text'] = round(x_axis,2)
-    y_axis_val['text'] = round(y_axis,2)
-    z_axis_val['text'] = round(z_axis,2)
-
+    yaw_val['text'] = round(yaw,2)
+    pitch_val['text'] = round(pitch,2)
+    roll_val['text'] = round(roll,2)
+    X_g_val['text'] = round(X,2)
+    Y_g_val['text'] = round(Y,2)
+    Z_g_val['text'] = round(Z,2)
     #Refresh or Exit
     if(active==False):
         win.after(20,win.destroy)
